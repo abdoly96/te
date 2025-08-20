@@ -1,0 +1,10 @@
+{
+    "epochs": 100,
+    "batch_size": 16,
+    "learning_rate": 0.001,
+    "image_size": 640,
+    "model_path": "models/",
+    "data_path": "processed/",
+    "auto_save": true,
+    "checkpoint_interval": 10
+}
