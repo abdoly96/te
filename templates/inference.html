@@ -69,9 +69,9 @@
                 </div>
                 
                 <div class="text-center mt-4">
-                    <button type="submit" class="action-btn" id="runInferenceBtn" disabled>
+                    <button type="button" class="action-btn" id="runInferenceBtn" disabled onclick="runAutoDetection()">
                         <i data-lucide="play"></i>
-                        تشغيل الاستنتاج
+                        بدء الكشف
                     </button>
                 </div>
             </form>
@@ -341,6 +341,47 @@ function downloadResults() {
             notification.parentNode.removeChild(notification);
         }
     }, 3000);
+}
+
+function runAutoDetection() {
+    const imageInput = document.getElementById('imageInput');
+    const files = imageInput.files;
+
+    if (files.length === 0) {
+        alert('Please select images to process.');
+        return;
+    }
+
+    const formData = new FormData();
+    for (const file of files) {
+        formData.append('images', file);
+    }
+
+    const runInferenceBtn = document.getElementById('runInferenceBtn');
+    runInferenceBtn.disabled = true;
+    runInferenceBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
+    fetch('/api/auto_detect_trees', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+        } else {
+            alert('An error occurred: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while processing the images.');
+    })
+    .finally(() => {
+        runInferenceBtn.disabled = false;
+        runInferenceBtn.innerHTML = '<i data-lucide="play"></i> بدء الكشف';
+        lucide.createIcons();
+    });
 }
 </script>
 {% endblock %}
