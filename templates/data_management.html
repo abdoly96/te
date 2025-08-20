@@ -1,0 +1,325 @@
+{% extends "base.html" %}
+
+{% block title %}إدارة البيانات - YOLOv8 Vision Lab{% endblock %}
+
+{% block page_title %}إدارة البيانات{% endblock %}
+{% block page_subtitle %}رفع وتنظيم بيانات التدريب{% endblock %}
+
+{% block content %}
+<!-- Data Overview -->
+<div class="row animate-fade-in">
+    <div class="col-lg-3 mb-4">
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">إجمالي الصور</span>
+                <div class="card-icon primary">
+                    <i data-lucide="image"></i>
+                </div>
+            </div>
+            <div class="card-value">{{ total_images }}</div>
+            <div class="card-description">صور في قاعدة البيانات</div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 mb-4">
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">الصور المعالجة</span>
+                <div class="card-icon success">
+                    <i data-lucide="check-circle"></i>
+                </div>
+            </div>
+            <div class="card-value">{{ processed_images }}</div>
+            <div class="card-description">صور تم تصنيفها</div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 mb-4">
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">الصور الجديدة</span>
+                <div class="card-icon warning">
+                    <i data-lucide="plus-circle"></i>
+                </div>
+            </div>
+            <div class="card-value">{{ new_images }}</div>
+            <div class="card-description">صور بانتظار المعالجة</div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 mb-4">
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span class="card-title">المساحة المستخدمة</span>
+                <div class="card-icon info">
+                    <i data-lucide="hard-drive"></i>
+                </div>
+            </div>
+            <div class="card-value">{{ storage_used }}</div>
+            <div class="card-description">من إجمالي {{ total_storage }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="quick-actions animate-fade-in" style="animation-delay: 0.2s;">
+    <h3 class="mb-3 text-gradient">الإجراءات السريعة</h3>
+    <div class="actions-grid">
+        <button class="action-btn" onclick="showUploadModal()">
+            <i data-lucide="upload"></i>
+            رفع صور جديدة
+        </button>
+        
+        <button class="action-btn secondary" onclick="processAllImages()">
+            <i data-lucide="settings"></i>
+            معالجة جميع الصور
+        </button>
+        
+        <button class="action-btn secondary" onclick="exportDataset()">
+            <i data-lucide="download"></i>
+            تصدير Dataset
+        </button>
+        
+        <button class="action-btn secondary" onclick="cleanupData()">
+            <i data-lucide="trash-2"></i>
+            تنظيف البيانات
+        </button>
+    </div>
+</div>
+
+<!-- Data Categories -->
+<div class="row animate-fade-in" style="animation-delay: 0.4s;">
+    <div class="col-lg-8 mb-4">
+        <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+            <h4 class="text-gradient mb-3">فئات البيانات</h4>
+            
+            <div class="categories-grid">
+                {% for category in data_categories %}
+                <div class="category-item" style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; background: var(--bg-glass-hover); border-radius: 12px; margin-bottom: 1rem;">
+                    <div class="d-flex align-items-center">
+                        <div class="category-icon me-3" style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary-purple), var(--accent-pink)); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white;">
+                            <i data-lucide="folder"></i>
+                        </div>
+                        <div>
+                            <div class="fw-bold">{{ category.name }}</div>
+                            <small class="text-muted">{{ category.count }} صورة</small>
+                        </div>
+                    </div>
+                    
+                    <div class="category-actions">
+                        <button class="action-btn secondary btn-sm" onclick="viewCategory('{{ category.name }}')" style="padding: 0.5rem 1rem;">
+                            <i data-lucide="eye"></i>
+                            عرض
+                        </button>
+                        <button class="action-btn secondary btn-sm" onclick="editCategory('{{ category.name }}')" style="padding: 0.5rem 1rem;">
+                            <i data-lucide="edit"></i>
+                            تعديل
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 mb-4">
+        <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+            <h4 class="text-gradient mb-3">إحصائيات سريعة</h4>
+            
+            <div class="stats-list">
+                <div class="stat-item" style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
+                    <span class="text-muted">أكبر فئة:</span>
+                    <span class="fw-bold">{{ largest_category.name }}</span>
+                </div>
+                <div class="stat-item" style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
+                    <span class="text-muted">متوسط الصور:</span>
+                    <span class="fw-bold">{{ "%.1f"|format(avg_images_per_category) }}</span>
+                </div>
+                <div class="stat-item" style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
+                    <span class="text-muted">آخر تحديث:</span>
+                    <span class="fw-bold">{{ last_update }}</span>
+                </div>
+                <div class="stat-item" style="display: flex; justify-content: space-between; padding: 0.5rem 0;">
+                    <span class="text-muted">حالة النسخ الاحتياطي:</span>
+                    <span class="status-indicator active">محدث</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Uploads -->
+<div class="row animate-fade-in" style="animation-delay: 0.6s;">
+    <div class="col-12">
+        <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+            <h4 class="text-gradient mb-3">آخر المرفوعات</h4>
+            
+            {% if recent_uploads %}
+            <div class="uploads-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem;">
+                {% for upload in recent_uploads %}
+                <div class="upload-item" style="background: var(--bg-glass-hover); border-radius: 12px; padding: 1rem; text-align: center;">
+                    <img src="{{ upload.thumbnail }}" class="img-fluid rounded mb-2" style="max-height: 120px; width: 100%; object-fit: cover;">
+                    <div class="fw-bold small">{{ upload.filename }}</div>
+                    <small class="text-muted">{{ upload.upload_time }}</small>
+                    <div class="mt-2">
+                        <span class="status-indicator {% if upload.processed %}active{% else %}warning{% endif %}">
+                            {% if upload.processed %}معالج{% else %}في الانتظار{% endif %}
+                        </span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center text-muted py-4">
+                <i data-lucide="upload" style="width: 48px; height: 48px; opacity: 0.5;"></i>
+                <p class="mt-2">لا توجد مرفوعات حديثة</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content glass" style="background: var(--bg-glass); border: 1px solid var(--border-glass);">
+            <div class="modal-header" style="border-bottom: 1px solid var(--border-glass);">
+                <h5 class="modal-title text-gradient">رفع صور جديدة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST" action="{{ url_for('upload_files') }}" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label class="form-label text-secondary">نوع الرفع</label>
+                        <select name="upload_type" class="form-select" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                            <option value="single">ملف واحد</option>
+                            <option value="multiple">ملفات متعددة</option>
+                            <option value="zip">ملف ZIP</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-secondary">اختيار الملفات</label>
+                        <input type="file" name="files" class="form-control" accept="image/*" multiple style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-secondary">الفئة الافتراضية</label>
+                        <select name="default_category" class="form-select" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                            <option value="palm tree">palm tree</option>
+                        </select>
+                    </div>
+                    
+                    <div class="text-end">
+                        <button type="button" class="action-btn secondary me-2" data-bs-dismiss="modal">إلغاء</button>
+                        <button type="submit" class="action-btn">رفع</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Initialize Lucide icons for this page
+document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+});
+
+// Show upload modal
+function showUploadModal() {
+    const modal = new bootstrap.Modal(document.getElementById('uploadModal'));
+    modal.show();
+}
+
+// Process all images
+function processAllImages() {
+    if (confirm('هل تريد معالجة جميع الصور غير المعالجة؟')) {
+        fetch('/api/process_all_images', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('حدث خطأ أثناء معالجة الصور');
+            }
+        });
+    }
+}
+
+// Export dataset
+function exportDataset() {
+    fetch('/api/export_dataset')
+        .then(response => response.blob())
+        .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'yolo_dataset.zip';
+            a.click();
+            window.URL.revokeObjectURL(url);
+        });
+}
+
+// Cleanup data
+function cleanupData() {
+    if (confirm('هل تريد تنظيف البيانات غير المستخدمة؟ هذا الإجراء لا يمكن التراجع عنه.')) {
+        fetch('/api/cleanup_data', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('حدث خطأ أثناء تنظيف البيانات');
+            }
+        });
+    }
+}
+
+// View category
+function viewCategory(categoryName) {
+    window.location.href = `/data_management/category/${categoryName}`;
+}
+
+// Edit category
+function editCategory(categoryName) {
+    // Show edit modal or redirect to edit page
+    alert(`تعديل الفئة: ${categoryName}`);
+}
+
+// Add some interactive features
+document.addEventListener('DOMContentLoaded', function() {
+    // Add hover effects to category items
+    const categoryItems = document.querySelectorAll('.category-item');
+    categoryItems.forEach(item => {
+        item.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px)';
+            this.style.transition = 'transform 0.2s ease';
+        });
+        
+        item.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
+    
+    // Add hover effects to upload items
+    const uploadItems = document.querySelectorAll('.upload-item');
+    uploadItems.forEach(item => {
+        item.addEventListener('mouseenter', function() {
+            this.style.transform = 'scale(1.02)';
+            this.style.transition = 'transform 0.2s ease';
+        });
+        
+        item.addEventListener('mouseleave', function() {
+            this.style.transform = 'scale(1)';
+        });
+    });
+});
+</script>
+{% endblock %}

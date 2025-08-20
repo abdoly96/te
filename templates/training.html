@@ -1,0 +1,382 @@
+{% extends "base.html" %}
+
+{% block title %}التدريب - YOLOv8 Vision Lab{% endblock %}
+
+{% block page_title %}إدارة التدريب{% endblock %}
+{% block page_subtitle %}بدء وإدارة تدريب النماذج{% endblock %}
+
+{% block content %}
+<!-- Training Control Panel -->
+<div class="row animate-fade-in">
+    <div class="col-lg-8 mb-4">
+        <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+            <h4 class="text-gradient mb-3">لوحة تحكم التدريب</h4>
+            
+            {% if training_state.is_training %}
+                <div class="alert alert-info glass" style="border: 1px solid var(--accent-cyan);">
+                    <div class="d-flex align-items-center">
+                        <div class="live-dot me-2"></div>
+                        <strong>التدريب جاري...</strong>
+                    </div>
+                    <p class="mb-2 mt-2">Epoch {{ training_state.current_epoch }} / {{ training_state.total_epochs }}</p>
+                    
+                    <form method="POST" action="{{ url_for('stop_training') }}" class="d-inline">
+                        <button type="submit" class="action-btn" style="background: var(--accent-pink);">
+                            <i data-lucide="stop-circle"></i>
+                            إيقاف التدريب
+                        </button>
+                    </form>
+                </div>
+            {% else %}
+                <div class="training-actions">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <form method="POST" action="{{ url_for('start_training') }}">
+                                <input type="hidden" name="training_type" value="new">
+                                <button type="submit" class="action-btn w-100" {% if processed_files == 0 %}disabled{% endif %}>
+                                    <i data-lucide="play"></i>
+                                    تدريب جديد
+                                </button>
+                            </form>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <form method="POST" action="{{ url_for('start_training') }}">
+                                <input type="hidden" name="training_type" value="retrain">
+                                <button type="submit" class="action-btn secondary w-100" {% if processed_files == 0 %}disabled{% endif %}>
+                                    <i data-lucide="refresh-cw"></i>
+                                    إعادة تدريب
+                                </button>
+                            </form>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <form method="POST" action="{{ url_for('start_training') }}">
+                                <input type="hidden" name="training_type" value="resume">
+                                <button type="submit" class="action-btn secondary w-100">
+                                    <i data-lucide="play-circle"></i>
+                                    استئناف التدريب
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    {% if processed_files == 0 %}
+                        <div class="alert alert-warning glass mt-3" style="border: 1px solid var(--accent-yellow);">
+                            <i data-lucide="alert-triangle" class="me-2"></i>
+                            لا توجد صور معالجة. يرجى رفع ومعالجة الصور أولاً.
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Data Summary -->
+    <div class="col-lg-4 mb-4">
+        <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+            <h4 class="text-gradient mb-3">ملخص البيانات</h4>
+            <div class="data-stats">
+                <div class="row text-center">
+                    <div class="col-6 mb-3">
+                        <div class="stat-value" style="font-size: 2rem; font-weight: 700; color: var(--primary-purple);">{{ uploaded_files }}</div>
+                        <small class="text-muted">مرفوع</small>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="stat-value" style="font-size: 2rem; font-weight: 700; color: var(--accent-cyan);">{{ processed_files }}</div>
+                        <small class="text-muted">معالج</small>
+                    </div>
+                </div>
+                
+                {% if uploaded_files > 0 %}
+                <form method="POST" action="{{ url_for('process_uploaded') }}" class="mt-3">
+                    <button type="submit" class="action-btn secondary w-100">
+                        <i data-lucide="settings"></i>
+                        معالجة جميع المرفوعات
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Dataset Information -->
+<div class="row animate-fade-in" style="animation-delay: 0.2s;">
+    <div class="col-12 mb-4">
+        <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="text-gradient mb-0">معلومات Dataset</h4>
+                <button class="action-btn secondary" onclick="refreshDatasetInfo()">
+                    <i data-lucide="refresh-cw"></i>
+                    تحديث
+                </button>
+            </div>
+            
+            <div id="datasetInfo" class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">جاري التحميل...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- File Upload Section -->
+<div class="row animate-fade-in" style="animation-delay: 0.2s;">
+    <div class="col-12 mb-4">
+        <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+            <h4 class="text-gradient mb-3">رفع الملفات</h4>
+            
+            <form method="POST" action="{{ url_for('upload_files') }}" enctype="multipart/form-data">
+                <div class="upload-options">
+                    <!-- Single File Upload -->
+                    <div class="upload-option mb-4">
+                        <h5 class="text-secondary mb-3">رفع ملف واحد</h5>
+                        <div class="input-group">
+                            <input type="file" name="file" class="form-control" accept="image/*" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                            <input type="hidden" name="upload_type" value="single">
+                            <button type="submit" class="action-btn">
+                                <i data-lucide="upload"></i>
+                                رفع
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Multiple Files Upload -->
+                    <div class="upload-option mb-4">
+                        <h5 class="text-secondary mb-3">رفع ملفات متعددة</h5>
+                        <div class="input-group">
+                            <input type="file" name="files" class="form-control" accept="image/*" multiple style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                            <input type="hidden" name="upload_type" value="multiple">
+                            <button type="submit" class="action-btn">
+                                <i data-lucide="upload"></i>
+                                رفع متعدد
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ZIP File Upload -->
+                    <div class="upload-option mb-4">
+                        <h5 class="text-secondary mb-3">رفع ملف ZIP</h5>
+                        <div class="input-group">
+                            <input type="file" name="zip_file" class="form-control" accept=".zip" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                            <input type="hidden" name="upload_type" value="zip">
+                            <button type="submit" class="action-btn">
+                                <i data-lucide="archive"></i>
+                                رفع ZIP
+                            </button>
+                        </div>
+                        <small class="text-muted">يمكن رفع ملف ZIP يحتوي على صور متعددة</small>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Training Configuration -->
+<div class="row animate-fade-in" style="animation-delay: 0.4s;">
+    <div class="col-12">
+        <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+            <h4 class="text-gradient mb-3">إعدادات التدريب</h4>
+            
+            <form method="POST" action="{{ url_for('save_settings') }}">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label text-secondary">عدد Epochs</label>
+                        <input type="number" name="epochs" value="{{ config.epochs }}" class="form-control" min="1" max="1000" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                    </div>
+                    
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label text-secondary">حجم Batch</label>
+                        <input type="number" name="batch_size" value="{{ config.batch_size }}" class="form-control" min="1" max="128" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                    </div>
+                    
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label text-secondary">معدل التعلم</label>
+                        <input type="number" name="learning_rate" value="{{ config.learning_rate }}" class="form-control" step="0.0001" min="0.0001" max="0.1" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                    </div>
+                    
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label text-secondary">حجم الصورة</label>
+                        <input type="number" name="image_size" value="{{ config.image_size }}" class="form-control" min="320" max="1280" step="32" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" name="auto_save" class="form-check-input" id="autoSave" {% if config.auto_save %}checked{% endif %} style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass);">
+                            <label class="form-check-label text-secondary" for="autoSave">
+                                حفظ تلقائي
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label text-secondary">فترة نقاط التحقق</label>
+                        <input type="number" name="checkpoint_interval" value="{{ config.checkpoint_interval }}" class="form-control" min="1" max="50" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                    </div>
+                </div>
+                
+                <div class="text-end">
+                    <button type="submit" class="action-btn">
+                        <i data-lucide="save"></i>
+                        حفظ الإعدادات
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Training History -->
+<div class="row animate-fade-in" style="animation-delay: 0.6s;">
+    <div class="col-12">
+        <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+            <h4 class="text-gradient mb-3">تاريخ التدريب</h4>
+            
+            <div class="training-history">
+                {% if training_state.start_time %}
+                <div class="history-item" style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; background: var(--bg-glass-hover); border-radius: 12px; margin-bottom: 1rem;">
+                    <div>
+                        <div class="fw-bold">آخر جلسة تدريب</div>
+                        <small class="text-muted">بدأت في {{ training_state.start_time.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                    </div>
+                    <div class="text-end">
+                        <div class="status-indicator {% if training_state.is_training %}active{% else %}inactive{% endif %}">
+                            {% if training_state.is_training %}نشط{% else %}مكتمل{% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    <i data-lucide="clock" style="width: 48px; height: 48px; opacity: 0.5;"></i>
+                    <p class="mt-2">لا توجد جلسات تدريب سابقة</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Initialize Lucide icons for this page
+document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+    loadDatasetInfo(); // Load dataset info on page load
+});
+
+// Dataset Management Functions
+function loadDatasetInfo() {
+    fetch('/api/dataset/info')
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                document.getElementById('datasetInfo').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i data-lucide="x-circle" class="me-2"></i>
+                        خطأ في جلب معلومات Dataset: ${data.error}
+                    </div>
+                `;
+                return;
+            }
+            
+            document.getElementById('datasetInfo').innerHTML = `
+                <div class="row text-center">
+                    <div class="col-md-3 mb-3">
+                        <div class="stat-value" style="font-size: 1.5rem; font-weight: 700; color: var(--primary-purple);">
+                            ${data.train_images}
+                        </div>
+                        <small class="text-muted">صور التدريب</small>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="button class="stat-value" style="font-size: 1.5rem; font-weight: 700; color: var(--accent-cyan);">
+                            ${data.train_labels}
+                        </div>
+                        <small class="text-muted">ملفات التصنيف</small>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="stat-value" style="font-size: 1.5rem; font-weight: 700; color: var(--accent-yellow);">
+                            ${data.val_images}
+                        </div>
+                        <small class="text-muted">صور التحقق</small>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="stat-value" style="font-size: 1.5rem; font-weight: 700; color: var(--accent-green);">
+                            ${data.class_count}
+                        </div>
+                        <small class="text-muted">عدد الفئات</small>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <h6>الفئات المتاحة:</h6>
+                    <div class="d-flex flex-wrap gap-2 justify-content-center">
+                        ${data.classes.map(cls => `<span class="badge bg-primary">${cls}</span>`).join('')}
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <small class="text-muted">مسار Dataset: ${data.base_path}</small>
+                </div>
+            `;
+            
+            // Re-initialize icons for new content
+            lucide.createIcons();
+        })
+        .catch(error => {
+            console.error('Error loading dataset info:', error);
+            document.getElementById('datasetInfo').innerHTML = `
+                <div class="alert alert-danger">
+                    <i data-lucide="x-circle" class="me-2"></i>
+                    خطأ في جلب معلومات Dataset
+                </div>
+            `;
+        });
+}
+
+function refreshDatasetInfo() {
+    loadDatasetInfo();
+}
+
+// Add some interactive features
+document.addEventListener('DOMContentLoaded', function() {
+    // Add hover effects to upload options
+    const uploadOptions = document.querySelectorAll('.upload-option');
+    uploadOptions.forEach(option => {
+        option.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px)';
+            this.style.transition = 'transform 0.2s ease';
+        });
+        
+        option.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
+    
+    // Add form validation
+    const forms = document.querySelectorAll('form');
+    forms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            const requiredFields = form.querySelectorAll('[required]');
+            let isValid = true;
+            
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    isValid = false;
+                    field.style.borderColor = 'var(--accent-pink)';
+                } else {
+                    field.style.borderColor = 'var(--border-glass)';
+                }
+            });
+            
+            if (!isValid) {
+                e.preventDefault();
+                alert('يرجى ملء جميع الحقول المطلوبة');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

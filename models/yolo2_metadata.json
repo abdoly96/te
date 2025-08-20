@@ -1,0 +1,13 @@
+{
+  "model_name": "yolo2.pt",
+  "final_loss": 0.5,
+  "final_accuracy": 0.7,
+  "training_date": "2025-08-18T03:11:27.936063",
+  "architecture": "YOLOv8",
+  "input_size": 640,
+  "classes": [
+    "object"
+  ],
+  "total_parameters": 11173616,
+  "model_size_mb": 6.2
+}

@@ -1,0 +1,390 @@
+{% extends "base.html" %}
+
+{% block title %}Data Management - YOLOv8 Training{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Data Overview -->
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>Data Overview
+                </h5>
+            </div>
+            <div class="card-body text-center">
+                <div class="row">
+                    <div class="col-6 mb-3">
+                        <div class="h3 text-primary">{{ uploaded_files|length }}</div>
+                        <small class="text-muted">Uploaded Files</small>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <div class="h3 text-success">{{ processed_files|length }}</div>
+                        <small class="text-muted">Processed Files</small>
+                    </div>
+                </div>
+                
+                <div class="progress mb-3">
+                    {% set total_files = uploaded_files|length + processed_files|length %}
+                    {% if total_files > 0 %}
+                        <div class="progress-bar bg-success" style="width: {{ (processed_files|length / total_files * 100) }}%">
+                            Processed
+                        </div>
+                        <div class="progress-bar bg-primary" style="width: {{ (uploaded_files|length / total_files * 100) }}%">
+                            Uploaded
+                        </div>
+                    {% else %}
+                        <div class="progress-bar bg-secondary" style="width: 100%">No Data</div>
+                    {% endif %}
+                </div>
+                
+                <a href="{{ url_for('training') }}" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-upload me-1"></i>Upload More Data
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="col-md-8 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-bolt me-2"></i>Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-2">
+                        <form method="POST" action="{{ url_for('process_uploaded') }}">
+                            <button type="submit" class="btn btn-success w-100" {% if uploaded_files|length == 0 %}disabled{% endif %}>
+                                <i class="fas fa-cogs me-1"></i>Process All
+                            </button>
+                        </form>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <button class="btn btn-warning w-100" onclick="clearUploaded()" {% if uploaded_files|length == 0 %}disabled{% endif %}>
+                            <i class="fas fa-trash me-1"></i>Clear Uploaded
+                        </button>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <button class="btn btn-danger w-100" onclick="clearProcessed()" {% if processed_files|length == 0 %}disabled{% endif %}>
+                            <i class="fas fa-trash-alt me-1"></i>Clear Processed
+                        </button>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <button class="btn btn-info w-100" onclick="refreshData()">
+                            <i class="fas fa-sync me-1"></i>Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Uploaded Files -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-upload me-2"></i>Uploaded Files ({{ uploaded_files|length }})
+                </h5>
+                <div class="btn-group btn-group-sm" role="group">
+                    <input type="radio" class="btn-check" name="uploadView" id="uploadList" autocomplete="off" checked>
+                    <label class="btn btn-outline-secondary" for="uploadList">
+                        <i class="fas fa-list"></i>
+                    </label>
+                    <input type="radio" class="btn-check" name="uploadView" id="uploadGrid" autocomplete="off">
+                    <label class="btn btn-outline-secondary" for="uploadGrid">
+                        <i class="fas fa-th"></i>
+                    </label>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if uploaded_files %}
+                    <div class="table-responsive" id="uploadedList">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Size</th>
+                                    <th>Modified</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for file in uploaded_files %}
+                                <tr>
+                                    <td>
+                                        <i class="fas fa-{{ 'image' if file.type == 'Image' else 'file' }} me-1"></i>
+                                        {{ file.name }}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ 'primary' if file.type == 'Image' else 'secondary' }}">
+                                            {{ file.type }}
+                                        </span>
+                                    </td>
+                                    <td>{{ file.size }}</td>
+                                    <td>{{ file.modified }}</td>
+                                    <td>
+                                        <form method="POST" action="{{ url_for('delete_file', filename=file.name) }}" class="d-inline">
+                                            <input type="hidden" name="file_type" value="uploaded">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm" 
+                                                    onclick="return confirm('Delete {{ file.name }}?')">
+                                                <i class="fas fa-trash fa-xs"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-folder-open fa-3x mb-3"></i>
+                        <h6>No uploaded files</h6>
+                        <p>Upload some images to get started</p>
+                        <a href="{{ url_for('training') }}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-upload me-1"></i>Upload Files
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Processed Files -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-check-circle me-2"></i>Processed Files ({{ processed_files|length }})
+                </h5>
+                <div class="btn-group btn-group-sm" role="group">
+                    <input type="radio" class="btn-check" name="processedView" id="processedList" autocomplete="off" checked>
+                    <label class="btn btn-outline-secondary" for="processedList">
+                        <i class="fas fa-list"></i>
+                    </label>
+                    <input type="radio" class="btn-check" name="processedView" id="processedGrid" autocomplete="off">
+                    <label class="btn btn-outline-secondary" for="processedGrid">
+                        <i class="fas fa-th"></i>
+                    </label>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if processed_files %}
+                    <div class="table-responsive" id="processedList">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Size</th>
+                                    <th>Modified</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for file in processed_files %}
+                                <tr>
+                                    <td>
+                                        <i class="fas fa-image me-1 text-success"></i>
+                                        {{ file.name }}
+                                    </td>
+                                    <td>{{ file.size }}</td>
+                                    <td>{{ file.modified }}</td>
+                                    <td>
+                                        <form method="POST" action="{{ url_for('delete_file', filename=file.name) }}" class="d-inline">
+                                            <input type="hidden" name="file_type" value="processed">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm" 
+                                                    onclick="return confirm('Delete {{ file.name }}?')">
+                                                <i class="fas fa-trash fa-xs"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-cogs fa-3x mb-3"></i>
+                        <h6>No processed files</h6>
+                        <p>Process uploaded images for training</p>
+                        {% if uploaded_files %}
+                        <form method="POST" action="{{ url_for('process_uploaded') }}" class="d-inline">
+                            <button type="submit" class="btn btn-success btn-sm">
+                                <i class="fas fa-cogs me-1"></i>Process Now
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- File Statistics -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>File Statistics
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 text-center mb-3">
+                        <div class="h4 text-info">
+                            {% set image_count = uploaded_files | selectattr('type', 'equalto', 'Image') | list | length %}
+                            {{ image_count }}
+                        </div>
+                        <small class="text-muted">Image Files Uploaded</small>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <div class="h4 text-success">{{ processed_files|length }}</div>
+                        <small class="text-muted">Ready for Training</small>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <div class="h4 text-warning">
+                            {% set total_size = 0 %}
+                            {% for file in uploaded_files + processed_files %}
+                                {% set size_kb = file.size.replace(' KB', '')|float %}
+                                {% set total_size = total_size + size_kb %}
+                            {% endfor %}
+                            {{ "%.1f"|format(total_size / 1024) }} MB
+                        </div>
+                        <small class="text-muted">Total Data Size</small>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <div class="h4 text-primary">
+                            {% if processed_files|length > 0 %}
+                                {{ "%.1f"|format((processed_files|length / (uploaded_files|length + processed_files|length)) * 100) }}%
+                            {% else %}
+                                0%
+                            {% endif %}
+                        </div>
+                        <small class="text-muted">Processing Complete</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function clearUploaded() {
+    if (confirm('Are you sure you want to delete all uploaded files? This action cannot be undone.')) {
+        // Create a form to delete all uploaded files
+        const promises = [];
+        {% for file in uploaded_files %}
+        promises.push(
+            fetch('{{ url_for("delete_file", filename=file.name) }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'file_type=uploaded'
+            })
+        );
+        {% endfor %}
+        
+        Promise.all(promises).then(() => {
+            location.reload();
+        }).catch(error => {
+            console.error('Error:', error);
+            alert('Error deleting files. Please try again.');
+        });
+    }
+}
+
+function clearProcessed() {
+    if (confirm('Are you sure you want to delete all processed files? This will remove training-ready data.')) {
+        const promises = [];
+        {% for file in processed_files %}
+        promises.push(
+            fetch('{{ url_for("delete_file", filename=file.name) }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'file_type=processed'
+            })
+        );
+        {% endfor %}
+        
+        Promise.all(promises).then(() => {
+            location.reload();
+        }).catch(error => {
+            console.error('Error:', error);
+            alert('Error deleting files. Please try again.');
+        });
+    }
+}
+
+function refreshData() {
+    location.reload();
+}
+
+// View switcher functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle uploaded files view toggle
+    const uploadList = document.getElementById('uploadList');
+    const uploadGrid = document.getElementById('uploadGrid');
+    
+    if (uploadGrid) {
+        uploadGrid.addEventListener('change', function() {
+            if (this.checked) {
+                // Switch to grid view (you can implement this if needed)
+                console.log('Grid view for uploaded files');
+            }
+        });
+    }
+    
+    if (uploadList) {
+        uploadList.addEventListener('change', function() {
+            if (this.checked) {
+                // Switch to list view
+                console.log('List view for uploaded files');
+            }
+        });
+    }
+    
+    // Handle processed files view toggle
+    const processedList = document.getElementById('processedList');
+    const processedGrid = document.getElementById('processedGrid');
+    
+    if (processedGrid) {
+        processedGrid.addEventListener('change', function() {
+            if (this.checked) {
+                // Switch to grid view
+                console.log('Grid view for processed files');
+            }
+        });
+    }
+    
+    if (processedList) {
+        processedList.addEventListener('change', function() {
+            if (this.checked) {
+                // Switch to list view
+                console.log('List view for processed files');
+            }
+        });
+    }
+});
+
+// Auto-refresh every 30 seconds
+setInterval(function() {
+    // Optional: Auto-refresh the page every 30 seconds
+    // location.reload();
+}, 30000);
+</script>
+{% endblock %}

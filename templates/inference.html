@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+
+{% block title %}الاستنتاج - YOLOv8 Vision Lab{% endblock %}
+
+{% block page_title %}اختبار النموذج{% endblock %}
+{% block page_subtitle %}رفع الصور واختبار النموذج المدرب{% endblock %}
+
+{% block content %}
+<!-- Model Selection -->
+<div class="row animate-fade-in">
+    <div class="col-12 mb-4">
+        <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+            <h4 class="text-gradient mb-3">اختيار النموذج</h4>
+            
+            <form method="POST" action="{{ url_for('inference') }}" enctype="multipart/form-data">
+                <div class="row">
+                    <div class="col-md-8">
+                        <label class="form-label text-secondary">النموذج المدرب</label>
+                        <select name="model_path" class="form-select" required style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                            <option value="">اختر نموذج...</option>
+                            {% for model in available_models %}
+                            <option value="{{ model.path }}" {% if model.path == selected_model %}selected{% endif %}>
+                                {{ model.name }} ({{ model.size }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">اختر النموذج المدرب الذي تريد استخدامه للاستنتاج</small>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <label class="form-label text-secondary">عتبة الثقة</label>
+                        <input type="number" name="confidence_threshold" value="0.5" min="0.1" max="1.0" step="0.1" class="form-control" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        <small class="text-muted">قيمة بين 0.1 و 1.0</small>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Image Upload -->
+<div class="row animate-fade-in" style="animation-delay: 0.2s;">
+    <div class="col-12 mb-4">
+        <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+            <h4 class="text-gradient mb-3">رفع الصور للاختبار</h4>
+            
+            <form method="POST" action="{{ url_for('inference') }}" enctype="multipart/form-data" id="inferenceForm">
+                <input type="hidden" name="model_path" id="modelPathInput">
+                <input type="hidden" name="confidence_threshold" id="confidenceInput">
+                
+                <div class="upload-area" style="border: 2px dashed var(--border-glass); border-radius: 16px; padding: 2rem; text-align: center; background: var(--bg-glass-hover); transition: var(--transition-smooth);">
+                    <i data-lucide="upload-cloud" style="width: 64px; height: 64px; color: var(--primary-purple); margin-bottom: 1rem;"></i>
+                    <h5 class="text-secondary mb-2">اسحب وأفلت الصور هنا</h5>
+                    <p class="text-muted mb-3">أو اضغط لاختيار الملفات</p>
+                    
+                    <input type="file" name="images" accept="image/*" multiple class="form-control" id="imageInput" style="display: none;">
+                    <button type="button" class="action-btn" onclick="document.getElementById('imageInput').click()">
+                        <i data-lucide="image"></i>
+                        اختيار الصور
+                    </button>
+                    
+                    <div class="mt-3">
+                        <small class="text-muted">الصيغ المدعومة: PNG, JPG, JPEG, BMP, GIF</small>
+                    </div>
+                </div>
+                
+                <div id="selectedImages" class="mt-3" style="display: none;">
+                    <!-- Selected images will be shown here -->
+                </div>
+                
+                <div class="text-center mt-4">
+                    <button type="submit" class="action-btn" id="runInferenceBtn" disabled>
+                        <i data-lucide="play"></i>
+                        تشغيل الاستنتاج
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Results Display -->
+{% if results %}
+<div class="row animate-fade-in" style="animation-delay: 0.4s;">
+    <div class="col-12">
+        <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+            <h4 class="text-gradient mb-3">نتائج الاستنتاج</h4>
+            
+            <div class="results-grid">
+                {% for result in results %}
+                <div class="result-item" style="background: var(--bg-glass-hover); border-radius: 16px; padding: 1.5rem; margin-bottom: 1rem;">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-secondary mb-2">{{ result.filename }}</h6>
+                            <img src="data:image/jpeg;base64,{{ result.image_data }}" class="img-fluid rounded" style="max-height: 300px;">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h6 class="text-secondary mb-2">الكشوفات</h6>
+                            {% if result.detections %}
+                                <div class="detections-list">
+                                    {% for detection in result.detections %}
+                                    <div class="detection-item" style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg-glass); border-radius: 8px; margin-bottom: 0.5rem;">
+                                        <div>
+                                            <span class="fw-bold">{{ detection.class_name }}</span>
+                                            <br>
+                                            <small class="text-muted">الثقة: {{ "%.2f"|format(detection.confidence) }}</small>
+                                        </div>
+                                        <div class="text-end">
+                                            <div class="status-indicator active">
+                                                {{ "%.1f"|format(detection.confidence * 100) }}%
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <div class="row text-center">
+                                        <div class="col-4">
+                                            <div class="stat-value" style="font-size: 1.5rem; font-weight: 700; color: var(--primary-purple);">{{ result.detections|length }}</div>
+                                            <small class="text-muted">إجمالي الكشوفات</small>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="stat-value" style="font-size: 1.5rem; font-weight: 700; color: var(--accent-cyan);">{{ "%.2f"|format(result.avg_confidence) }}</div>
+                                            <small class="text-muted">متوسط الثقة</small>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="stat-value" style="font-size: 1.5rem; font-weight: 700; color: var(--accent-pink);">{{ "%.3f"|format(result.processing_time) }}s</div>
+                                            <small class="text-muted">وقت المعالجة</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="text-center text-muted py-4">
+                                    <i data-lucide="search-x" style="width: 48px; height: 48px; opacity: 0.5;"></i>
+                                    <p class="mt-2">لم يتم اكتشاف أي كائنات</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Download Results -->
+            <div class="text-center mt-4">
+                <button class="action-btn secondary" onclick="downloadResults()">
+                    <i data-lucide="download"></i>
+                    تحميل النتائج
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Performance Metrics -->
+{% if performance_stats %}
+<div class="row animate-fade-in" style="animation-delay: 0.6s;">
+    <div class="col-12">
+        <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+            <h4 class="text-gradient mb-3">إحصائيات الأداء</h4>
+            
+            <div class="row">
+                <div class="col-md-3 mb-3">
+                    <div class="dashboard-card">
+                        <div class="card-header">
+                            <span class="card-title">إجمالي الصور</span>
+                            <div class="card-icon primary">
+                                <i data-lucide="image"></i>
+                            </div>
+                        </div>
+                        <div class="card-value">{{ performance_stats.total_images }}</div>
+                        <div class="card-description">صور تم معالجتها</div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3 mb-3">
+                    <div class="dashboard-card">
+                        <div class="card-header">
+                            <span class="card-title">إجمالي الكشوفات</span>
+                            <div class="card-icon success">
+                                <i data-lucide="target"></i>
+                            </div>
+                        </div>
+                        <div class="card-value">{{ performance_stats.total_detections }}</div>
+                        <div class="card-description">كائنات تم اكتشافها</div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3 mb-3">
+                    <div class="dashboard-card">
+                        <div class="card-header">
+                            <span class="card-title">متوسط الثقة</span>
+                            <div class="card-icon warning">
+                                <i data-lucide="trending-up"></i>
+                            </div>
+                        </div>
+                        <div class="card-value">{{ "%.2f"|format(performance_stats.avg_confidence) }}</div>
+                        <div class="card-description">متوسط مستوى الثقة</div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3 mb-3">
+                    <div class="dashboard-card">
+                        <div class="card-header">
+                            <span class="card-title">وقت المعالجة</span>
+                            <div class="card-icon info">
+                                <i data-lucide="clock"></i>
+                            </div>
+                        </div>
+                        <div class="card-value">{{ "%.2f"|format(performance_stats.total_time) }}s</div>
+                        <div class="card-description">إجمالي وقت المعالجة</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Initialize Lucide icons for this page
+document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+});
+
+// Handle file selection
+document.getElementById('imageInput').addEventListener('change', function(e) {
+    const files = Array.from(e.target.files);
+    const selectedImagesDiv = document.getElementById('selectedImages');
+    const runInferenceBtn = document.getElementById('runInferenceBtn');
+    
+    if (files.length > 0) {
+        // Show selected images
+        selectedImagesDiv.style.display = 'block';
+        selectedImagesDiv.innerHTML = '';
+        
+        files.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imgDiv = document.createElement('div');
+                imgDiv.className = 'col-md-3 mb-2';
+                imgDiv.innerHTML = `
+                    <div class="position-relative">
+                        <img src="${e.target.result}" class="img-fluid rounded" style="max-height: 120px; width: 100%; object-fit: cover;">
+                        <div class="position-absolute top-0 end-0 m-1">
+                            <span class="badge bg-primary rounded-pill">${index + 1}</span>
+                        </div>
+                    </div>
+                    <small class="text-muted d-block text-center mt-1">${file.name}</small>
+                `;
+                selectedImagesDiv.appendChild(imgDiv);
+            };
+            reader.readAsDataURL(file);
+        });
+        
+        // Enable inference button
+        runInferenceBtn.disabled = false;
+        
+        // Update form inputs
+        updateFormInputs();
+    } else {
+        selectedImagesDiv.style.display = 'none';
+        runInferenceBtn.disabled = true;
+    }
+});
+
+// Update form inputs when model or confidence changes
+document.querySelector('select[name="model_path"]').addEventListener('change', updateFormInputs);
+document.querySelector('input[name="confidence_threshold"]').addEventListener('change', updateFormInputs);
+
+function updateFormInputs() {
+    const modelSelect = document.querySelector('select[name="model_path"]');
+    const confidenceInput = document.querySelector('input[name="confidence_threshold"]');
+    
+    document.getElementById('modelPathInput').value = modelSelect.value;
+    document.getElementById('confidenceInput').value = confidenceInput.value;
+}
+
+// Drag and drop functionality
+const uploadArea = document.querySelector('.upload-area');
+
+['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    uploadArea.addEventListener(eventName, preventDefaults, false);
+});
+
+function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+}
+
+['dragenter', 'dragover'].forEach(eventName => {
+    uploadArea.addEventListener(eventName, highlight, false);
+});
+
+['dragleave', 'drop'].forEach(eventName => {
+    uploadArea.addEventListener(eventName, unhighlight, false);
+});
+
+function highlight(e) {
+    uploadArea.style.borderColor = 'var(--primary-purple)';
+    uploadArea.style.background = 'var(--bg-glass)';
+}
+
+function unhighlight(e) {
+    uploadArea.style.borderColor = 'var(--border-glass)';
+    uploadArea.style.background = 'var(--bg-glass-hover)';
+}
+
+uploadArea.addEventListener('drop', handleDrop, false);
+
+function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    
+    document.getElementById('imageInput').files = files;
+    document.getElementById('imageInput').dispatchEvent(new Event('change'));
+}
+
+// Download results function
+function downloadResults() {
+    // This would typically send a request to download the results
+    // For now, we'll show a notification
+    const notification = document.createElement('div');
+    notification.className = 'alert alert-success alert-dismissible fade show glass';
+    notification.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999;';
+    notification.innerHTML = `
+        <i data-lucide="check-circle" class="me-2"></i>
+        تم تحضير النتائج للتحميل
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(notification);
+    
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 3000);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,470 @@
+{% extends "base.html" %}
+
+{% block title %}الإعدادات - YOLOv8 Vision Lab{% endblock %}
+
+{% block page_title %}الإعدادات{% endblock %}
+{% block page_subtitle %}تخصيص إعدادات النظام والتطبيق{% endblock %}
+
+{% block content %}
+<!-- Settings Navigation -->
+<div class="row animate-fade-in">
+    <div class="col-lg-3 mb-4">
+        <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+            <h4 class="text-gradient mb-3">أقسام الإعدادات</h4>
+            
+            <nav class="settings-nav">
+                <a href="#general" class="settings-nav-item active" onclick="showSettingsSection('general')">
+                    <i data-lucide="settings" class="me-2"></i>
+                    عام
+                </a>
+                <a href="#training" class="settings-nav-item" onclick="showSettingsSection('training')">
+                    <i data-lucide="play-circle" class="me-2"></i>
+                    التدريب
+                </a>
+                <a href="#model" class="settings-nav-item" onclick="showSettingsSection('model')">
+                    <i data-lucide="brain" class="me-2"></i>
+                    النموذج
+                </a>
+                <a href="#data" class="settings-nav-item" onclick="showSettingsSection('data')">
+                    <i data-lucide="database" class="me-2"></i>
+                    البيانات
+                </a>
+                <a href="#system" class="settings-nav-item" onclick="showSettingsSection('system')">
+                    <i data-lucide="monitor" class="me-2"></i>
+                    النظام
+                </a>
+                <a href="#advanced" class="settings-nav-item" onclick="showSettingsSection('advanced')">
+                    <i data-lucide="code" class="me-2"></i>
+                    متقدم
+                </a>
+            </nav>
+        </div>
+    </div>
+    
+    <div class="col-lg-9">
+        <!-- General Settings -->
+        <div id="general" class="settings-section active">
+            <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+                <h4 class="text-gradient mb-3">الإعدادات العامة</h4>
+                
+                <form method="POST" action="{{ url_for('save_settings') }}">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">عدد Epochs</label>
+                            <input type="number" name="epochs" value="{{ config.epochs }}" class="form-control" min="1" max="1000" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">حجم Batch</label>
+                            <input type="number" name="batch_size" value="{{ config.batch_size }}" class="form-control" min="1" max="128" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">معدل التعلم</label>
+                            <input type="number" name="learning_rate" value="{{ config.learning_rate }}" class="form-control" step="0.0001" min="0.0001" max="1.0" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">حجم الصورة</label>
+                            <input type="number" name="image_size" value="{{ config.image_size }}" class="form-control" min="320" max="1280" step="32" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" name="auto_save" class="form-check-input" id="autoSave" {% if config.auto_save %}checked{% endif %} style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass);">
+                                <label class="form-check-label text-secondary" for="autoSave">
+                                    حفظ تلقائي
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">فترة نقاط التحقق</label>
+                            <input type="number" name="checkpoint_interval" value="{{ config.checkpoint_interval }}" class="form-control" min="1" max="50" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                    </div>
+                    
+                    <div class="text-end">
+                        <button type="submit" class="action-btn">
+                            <i data-lucide="save"></i>
+                            حفظ الإعدادات
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Training Settings -->
+        <div id="training" class="settings-section" style="display: none;">
+            <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+                <h4 class="text-gradient mb-3">إعدادات التدريب</h4>
+                
+                <form method="POST" action="{{ url_for('save_training_settings') }}">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-secondary">عدد Epochs الافتراضي</label>
+                            <input type="number" name="default_epochs" value="{{ training_settings.default_epochs }}" class="form-control" min="1" max="1000" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-secondary">حجم Batch الافتراضي</label>
+                            <input type="number" name="default_batch_size" value="{{ training_settings.default_batch_size }}" class="form-control" min="1" max="128" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-secondary">معدل التعلم الافتراضي</label>
+                            <input type="number" name="default_learning_rate" value="{{ training_settings.default_learning_rate }}" class="form-control" step="0.0001" min="0.0001" max="0.1" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">حجم الصورة الافتراضي</label>
+                            <input type="number" name="default_image_size" value="{{ training_settings.default_image_size }}" class="form-control" min="320" max="1280" step="32" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">فترة نقاط التحقق</label>
+                            <input type="number" name="checkpoint_interval" value="{{ training_settings.checkpoint_interval }}" class="form-control" min="1" max="50" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" name="early_stopping" class="form-check-input" id="earlyStopping" {% if training_settings.early_stopping %}checked{% endif %} style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass);">
+                                <label class="form-check-label text-secondary" for="earlyStopping">
+                                    إيقاف مبكر عند عدم التحسن
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" name="data_augmentation" class="form-check-input" id="dataAugmentation" {% if training_settings.data_augmentation %}checked{% endif %} style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass);">
+                                <label class="form-check-label text-secondary" for="dataAugmentation">
+                                    تفعيل زيادة البيانات
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-end">
+                        <button type="submit" class="action-btn">
+                            <i data-lucide="save"></i>
+                            حفظ إعدادات التدريب
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Model Settings -->
+        <div id="model" class="settings-section" style="display: none;">
+            <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+                <h4 class="text-gradient mb-3">إعدادات النموذج</h4>
+                
+                <form method="POST" action="{{ url_for('save_model_settings') }}">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">مسار النماذج</label>
+                            <input type="text" name="models_path" value="{{ model_settings.models_path }}" class="form-control" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">نوع النموذج الافتراضي</label>
+                            <select name="default_model_type" class="form-select" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                                <option value="yolov8n" {% if model_settings.default_model_type == 'yolov8n' %}selected{% endif %}>YOLOv8 Nano</option>
+                                <option value="yolov8s" {% if model_settings.default_model_type == 'yolov8s' %}selected{% endif %}>YOLOv8 Small</option>
+                                <option value="yolov8m" {% if model_settings.default_model_type == 'yolov8m' %}selected{% endif %}>YOLOv8 Medium</option>
+                                <option value="yolov8l" {% if model_settings.default_model_type == 'yolov8l' %}selected{% endif %}>YOLOv8 Large</option>
+                                <option value="yolov8x" {% if model_settings.default_model_type == 'yolov8x' %}selected{% endif %}>YOLOv8 XLarge</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">عتبة الثقة الافتراضية</label>
+                            <input type="number" name="default_confidence" value="{{ model_settings.default_confidence }}" class="form-control" min="0.1" max="1.0" step="0.1" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">عتبة IoU</label>
+                            <input type="number" name="iou_threshold" value="{{ model_settings.iou_threshold }}" class="form-control" min="0.1" max="1.0" step="0.1" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                    </div>
+                    
+                    <div class="text-end">
+                        <button type="submit" class="action-btn">
+                            <i data-lucide="save"></i>
+                            حفظ إعدادات النموذج
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Data Settings -->
+        <div id="data" class="settings-section" style="display: none;">
+            <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+                <h4 class="text-gradient mb-3">إعدادات البيانات</h4>
+                
+                <form method="POST" action="{{ url_for('save_data_settings') }}">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">مسار البيانات</label>
+                            <input type="text" name="data_path" value="{{ data_settings.data_path }}" class="form-control" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">مسار النسخ الاحتياطي</label>
+                            <input type="text" name="backup_path" value="{{ data_settings.backup_path }}" class="form-control" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">فترة النسخ الاحتياطي (أيام)</label>
+                            <input type="number" name="backup_interval" value="{{ data_settings.backup_interval }}" class="form-control" min="1" max="365" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">الحد الأقصى لحجم الملف (MB)</label>
+                            <input type="number" name="max_file_size" value="{{ data_settings.max_file_size }}" class="form-control" min="1" max="1000" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" name="auto_backup" class="form-check-input" id="autoBackup" {% if data_settings.auto_backup %}checked{% endif %} style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass);">
+                                <label class="form-check-label text-secondary" for="autoBackup">
+                                    نسخ احتياطي تلقائي
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" name="compress_backup" class="form-check-input" id="compressBackup" {% if data_settings.compress_backup %}checked{% endif %} style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass);">
+                                <label class="form-check-label text-secondary" for="compressBackup">
+                                    ضغط النسخ الاحتياطي
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-end">
+                        <button type="submit" class="action-btn">
+                            <i data-lucide="save"></i>
+                            حفظ إعدادات البيانات
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- System Settings -->
+        <div id="system" class="settings-section" style="display: none;">
+            <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+                <h4 class="text-gradient mb-3">إعدادات النظام</h4>
+                
+                <form method="POST" action="{{ url_for('save_system_settings') }}">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">عدد العمليات المتوازية</label>
+                            <input type="number" name="max_workers" value="{{ system_settings.max_workers }}" class="form-control" min="1" max="16" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">حد الذاكرة (GB)</label>
+                            <input type="number" name="memory_limit" value="{{ system_settings.memory_limit }}" class="form-control" min="1" max="64" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">مستوى السجل</label>
+                            <select name="log_level" class="form-select" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                                <option value="DEBUG" {% if system_settings.log_level == 'DEBUG' %}selected{% endif %}>تصحيح</option>
+                                <option value="INFO" {% if system_settings.log_level == 'INFO' %}selected{% endif %}>معلومات</option>
+                                <option value="WARNING" {% if system_settings.log_level == 'WARNING' %}selected{% endif %}>تحذير</option>
+                                <option value="ERROR" {% if system_settings.log_level == 'ERROR' %}selected{% endif %}>خطأ</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">فترة تنظيف السجلات (أيام)</label>
+                            <input type="number" name="log_retention" value="{{ system_settings.log_retention }}" class="form-control" min="1" max="365" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                    </div>
+                    
+                    <div class="text-end">
+                        <button type="submit" class="action-btn">
+                            <i data-lucide="save"></i>
+                            حفظ إعدادات النظام
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Advanced Settings -->
+        <div id="advanced" class="settings-section" style="display: none;">
+            <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+                <h4 class="text-gradient mb-3">الإعدادات المتقدمة</h4>
+                
+                <div class="alert alert-warning glass" style="border: 1px solid var(--accent-yellow);">
+                    <i data-lucide="alert-triangle" class="me-2"></i>
+                    <strong>تحذير:</strong> هذه الإعدادات للمستخدمين المتقدمين فقط. التغيير الخاطئ قد يؤثر على أداء النظام.
+                </div>
+                
+                <form method="POST" action="{{ url_for('save_advanced_settings') }}">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">تفعيل وضع التطوير</label>
+                            <div class="form-check">
+                                <input type="checkbox" name="debug_mode" class="form-check-input" id="debugMode" {% if advanced_settings.debug_mode %}checked{% endif %} style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass);">
+                                <label class="form-check-label text-secondary" for="debugMode">
+                                    تفعيل وضع التطوير
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">تفعيل الاختبارات</label>
+                            <div class="form-check">
+                                <input type="checkbox" name="enable_tests" class="form-check-input" id="enableTests" {% if advanced_settings.enable_tests %}checked{% endif %} style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass);">
+                                <label class="form-check-label text-secondary" for="enableTests">
+                                    تفعيل الاختبارات التلقائية
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">مفتاح API</label>
+                            <input type="text" name="api_key" value="{{ advanced_settings.api_key }}" class="form-control" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-secondary">عنوان الخادم</label>
+                            <input type="text" name="server_url" value="{{ advanced_settings.server_url }}" class="form-control" style="background: var(--bg-glass-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
+                        </div>
+                    </div>
+                    
+                    <div class="text-end">
+                        <button type="submit" class="action-btn">
+                            <i data-lucide="save"></i>
+                            حفظ الإعدادات المتقدمة
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Initialize Lucide icons for this page
+document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+});
+
+// Show settings section
+function showSettingsSection(sectionId) {
+    // Hide all sections
+    document.querySelectorAll('.settings-section').forEach(section => {
+        section.style.display = 'none';
+    });
+    
+    // Show selected section
+    document.getElementById(sectionId).style.display = 'block';
+    
+    // Update navigation
+    document.querySelectorAll('.settings-nav-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    
+    // Find and activate the clicked item
+    const clickedItem = document.querySelector(`[onclick="showSettingsSection('${sectionId}')"]`);
+    if (clickedItem) {
+        clickedItem.classList.add('active');
+    }
+}
+
+// Add some interactive features
+document.addEventListener('DOMContentLoaded', function() {
+    // Add hover effects to settings nav items
+    const navItems = document.querySelectorAll('.settings-nav-item');
+    navItems.forEach(item => {
+        item.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateX(5px)';
+            this.style.transition = 'transform 0.2s ease';
+        });
+        
+        item.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateX(0)';
+        });
+    });
+    
+    // Add form validation
+    const forms = document.querySelectorAll('form');
+    forms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            const requiredFields = form.querySelectorAll('[required]');
+            let isValid = true;
+            
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    isValid = false;
+                    field.style.borderColor = 'var(--accent-pink)';
+                } else {
+                    field.style.borderColor = 'var(--border-glass)';
+                }
+            });
+            
+            if (!isValid) {
+                e.preventDefault();
+                alert('يرجى ملء جميع الحقول المطلوبة');
+            }
+        });
+    });
+});
+</script>
+
+<style>
+.settings-nav-item {
+    display: block;
+    padding: 1rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-radius: 12px;
+    margin-bottom: 0.5rem;
+    transition: var(--transition-smooth);
+    border-left: 3px solid transparent;
+}
+
+.settings-nav-item:hover {
+    background: var(--bg-glass-hover);
+    color: var(--text-primary);
+    text-decoration: none;
+}
+
+.settings-nav-item.active {
+    background: var(--bg-glass-hover);
+    color: var(--text-primary);
+    border-left-color: var(--primary-purple);
+}
+</style>
+{% endblock %}
+
+{% endblock %}

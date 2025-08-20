@@ -1,0 +1,7 @@
+{
+  "epoch": 100,
+  "loss": 0.19204883259812738,
+  "accuracy": 0.9487038328509232,
+  "timestamp": "2025-08-19T20:56:47.914489",
+  "model_state": "checkpoint_epoch_100.pt"
+}

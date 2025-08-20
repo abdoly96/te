@@ -1,0 +1,325 @@
+{% extends "base.html" %}
+
+{% block title %}لوحة التحكم - YOLOv8 Vision Lab{% endblock %}
+
+{% block page_title %}لوحة التحكم{% endblock %}
+{% block page_subtitle %}مراقبة حالة التدريب والإحصائيات{% endblock %}
+
+{% block header_actions %}
+<div class="header-actions">
+    <button class="action-btn secondary" onclick="refreshDashboard()">
+        <i data-lucide="refresh-cw"></i>
+        تحديث
+    </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Dashboard Overview -->
+<div class="dashboard-grid animate-fade-in">
+    <!-- Training Sessions Card -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">جلسات التدريب</span>
+            <div class="card-icon primary">
+                <i data-lucide="activity"></i>
+            </div>
+        </div>
+        <div class="card-value">{{ recent_models|length }}</div>
+        <div class="card-description">إجمالي النماذج المدربة</div>
+    </div>
+
+    <!-- Active Training Status -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">حالة التدريب</span>
+            <div class="card-icon {% if training_state.is_training %}success{% else %}info{% endif %}">
+                <i data-lucide="{% if training_state.is_training %}play{% else %}pause{% endif %}"></i>
+            </div>
+        </div>
+        <div class="card-value">
+            {% if training_state.is_training %}
+                <div class="live-indicator">
+                    <div class="live-dot"></div>
+                    نشط
+                </div>
+            {% else %}
+                متوقف
+            {% endif %}
+        </div>
+        <div class="card-description">
+            {% if training_state.is_training %}
+                Epoch {{ training_state.current_epoch }}/{{ training_state.total_epochs }}
+            {% else %}
+                جاهز للتدريب
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Best Model Performance -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">أفضل دقة</span>
+            <div class="card-icon warning">
+                <i data-lucide="target"></i>
+            </div>
+        </div>
+        <div class="card-value">{{ "%.2f"|format(training_state.accuracy * 100) }}%</div>
+        <div class="card-description">أعلى دقة محققة</div>
+    </div>
+
+    <!-- Current Loss -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <span class="card-title">الخسارة الحالية</span>
+            <div class="card-icon info">
+                <i data-lucide="trending-down"></i>
+            </div>
+        </div>
+        <div class="card-value">{{ "%.4f"|format(training_state.loss) }}</div>
+        <div class="card-description">آخر قيمة خسارة</div>
+    </div>
+</div>
+
+<!-- Quick Actions Section -->
+<div class="quick-actions animate-fade-in" style="animation-delay: 0.2s;">
+    <h3 class="mb-3 text-gradient">الإجراءات السريعة</h3>
+    <div class="actions-grid">
+        <a href="{{ url_for('annotation') }}" class="action-btn">
+            <i data-lucide="image-plus"></i>
+            بدء تصنيف جديد
+        </a>
+        
+        <a href="{{ url_for('training') }}" class="action-btn">
+            <i data-lucide="play"></i>
+            بدء تدريب
+        </a>
+        
+        <a href="{{ url_for('inference') }}" class="action-btn">
+            <i data-lucide="search"></i>
+            اختبار النموذج
+        </a>
+        
+        <a href="{{ url_for('data_management') }}" class="action-btn secondary">
+            <i data-lucide="database"></i>
+            إدارة البيانات
+        </a>
+    </div>
+</div>
+
+<!-- Training Progress & Metrics -->
+<div class="row animate-fade-in" style="animation-delay: 0.4s;">
+    <!-- Training Progress Chart -->
+    <div class="col-lg-8 mb-4">
+        <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h4 class="text-gradient mb-0">تقدم التدريب</h4>
+                {% if training_state.is_training %}
+                <div class="status-indicator active">
+                    <div class="live-dot"></div>
+                    تدريب نشط
+                </div>
+                {% endif %}
+            </div>
+            
+            {% if training_state.is_training %}
+            <div class="progress-container">
+                <div class="progress-label">
+                    <span>التقدم</span>
+                    <span>{{ training_state.progress }}%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {{ training_state.progress }}%"></div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <canvas id="trainingChart" height="300"></canvas>
+        </div>
+    </div>
+
+    <!-- System Resources -->
+    <div class="col-lg-4 mb-4">
+        <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+            <h4 class="text-gradient mb-3">موارد النظام</h4>
+            
+            <!-- CPU Usage -->
+            <div class="progress-container">
+                <div class="progress-label">
+                    <span>استخدام المعالج</span>
+                    <span id="cpuUsage">45%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="cpuBar" style="width: 45%"></div>
+                </div>
+            </div>
+            
+            <!-- RAM Usage -->
+            <div class="progress-container">
+                <div class="progress-label">
+                    <span>استخدام الذاكرة</span>
+                    <span id="ramUsage">62%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="ramBar" style="width: 62%"></div>
+                </div>
+            </div>
+            
+            <!-- GPU Usage (if available) -->
+            <div class="progress-container">
+                <div class="progress-label">
+                    <span>استخدام الرسومات</span>
+                    <span id="gpuUsage">78%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="gpuBar" style="width: 78%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Models & Training History -->
+<div class="row animate-fade-in" style="animation-delay: 0.6s;">
+    <!-- Recent Models -->
+    <div class="col-lg-6 mb-4">
+        <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+            <h4 class="text-gradient mb-3">النماذج الحديثة</h4>
+            {% if recent_models %}
+            <div class="models-list">
+                {% for model in recent_models %}
+                <div class="model-item" style="display: flex; align-items: center; justify-content: space-between; padding: 1rem; margin-bottom: 0.5rem; background: var(--bg-glass-hover); border-radius: 12px;">
+                    <div>
+                        <div class="fw-bold">{{ model.name }}</div>
+                        <small class="text-muted">{{ model.modified }}</small>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold">{{ model.size }}</div>
+                        <div class="status-indicator {% if loop.first %}active{% else %}inactive{% endif %}">
+                            {% if loop.first %}أحدث{% else %}قديم{% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center text-muted py-4">
+                <i data-lucide="package" style="width: 48px; height: 48px; opacity: 0.5;"></i>
+                <p class="mt-2">لا توجد نماذج مدربة بعد</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Training Configuration -->
+    <div class="col-lg-6 mb-4">
+        <div class="glass" style="padding: 1.5rem; border-radius: 24px;">
+            <h4 class="text-gradient mb-3">إعدادات التدريب</h4>
+            <div class="config-grid" style="display: grid; gap: 1rem;">
+                <div class="config-item" style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
+                    <span class="text-muted">عدد Epochs:</span>
+                    <span class="fw-bold">{{ config.epochs }}</span>
+                </div>
+                <div class="config-item" style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
+                    <span class="text-muted">حجم Batch:</span>
+                    <span class="fw-bold">{{ config.batch_size }}</span>
+                </div>
+                <div class="config-item" style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
+                    <span class="text-muted">معدل التعلم:</span>
+                    <span class="fw-bold">{{ config.learning_rate }}</span>
+                </div>
+                <div class="config-item" style="display: flex; justify-content: space-between; padding: 0.5rem 0;">
+                    <span class="text-muted">حجم الصورة:</span>
+                    <span class="fw-bold">{{ config.image_size }}px</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Training Chart
+const ctx = document.getElementById('trainingChart').getContext('2d');
+const trainingChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: {{ training_history.epochs | tojson }},
+        datasets: [{
+            label: 'الخسارة',
+            data: {{ training_history.loss | tojson }},
+            borderColor: '#8B5CF6',
+            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+            tension: 0.4,
+            fill: true
+        }, {
+            label: 'الدقة',
+            data: {{ training_history.accuracy | tojson }},
+            borderColor: '#EC4899',
+            backgroundColor: 'rgba(236, 72, 153, 0.1)',
+            tension: 0.4,
+            fill: true
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                labels: {
+                    color: '#E2E8F0'
+                }
+            }
+        },
+        scales: {
+            x: {
+                ticks: {
+                    color: '#94A3B8'
+                },
+                grid: {
+                    color: 'rgba(148, 163, 184, 0.1)'
+                }
+            },
+            y: {
+                ticks: {
+                    color: '#94A3B8'
+                },
+                grid: {
+                    color: 'rgba(148, 163, 184, 0.1)'
+                }
+            }
+        }
+    }
+});
+
+// Simulate real-time resource usage updates
+function updateResourceUsage() {
+    const cpuUsage = Math.floor(Math.random() * 30) + 30; // 30-60%
+    const ramUsage = Math.floor(Math.random() * 20) + 50; // 50-70%
+    const gpuUsage = Math.floor(Math.random() * 25) + 60; // 60-85%
+    
+    document.getElementById('cpuUsage').textContent = cpuUsage + '%';
+    document.getElementById('cpuBar').style.width = cpuUsage + '%';
+    
+    document.getElementById('ramUsage').textContent = ramUsage + '%';
+    document.getElementById('ramBar').style.width = ramUsage + '%';
+    
+    document.getElementById('gpuUsage').textContent = gpuUsage + '%';
+    document.getElementById('gpuBar').style.width = gpuUsage + '%';
+}
+
+// Update resources every 3 seconds
+setInterval(updateResourceUsage, 3000);
+
+// Refresh dashboard function
+function refreshDashboard() {
+    location.reload();
+}
+
+// Initialize Lucide icons for this page
+document.addEventListener('DOMContentLoaded', function() {
+    lucide.createIcons();
+});
+</script>
+{% endblock %}
