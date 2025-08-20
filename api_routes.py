@@ -11,6 +11,8 @@ import zipfile
 import io
 from utils.tree_detector import TreeDetector
 from utils.dataset_manager import DatasetManager
+import zipfile
+from pathlib import Path
 
 def create_api_routes(app, enhanced_trainer, file_handler, image_processor, dataset_manager):
     """Create comprehensive API routes for the YOLOv8 dashboard"""
@@ -350,74 +352,60 @@ names: {classes}
     
     @app.route('/api/auto_detect_trees', methods=['POST'])
     def api_auto_detect_trees():
-        """Automatically detect palm trees in uploaded images"""
+        """Automatically detect palm trees in uploaded images and save them to the dataset."""
         try:
-            if 'image' not in request.files:
-                return jsonify({'error': 'No image file provided'}), 400
-            
-            file = request.files['image']
-            if file.filename == '':
-                return jsonify({'error': 'No file selected'}), 400
-            
-            # Save uploaded image temporarily
-            filename = secure_filename(file.filename)
-            temp_path = os.path.join('uploads', f'temp_{filename}')
-            os.makedirs('uploads', exist_ok=True)
-            file.save(temp_path)
-            
-            try:
-                # Initialize tree detector
-                tree_detector = TreeDetector()
-                
-                # Detect trees in the image
-                bounding_boxes = tree_detector.detect_trees(temp_path)
-                
-                # Save annotated image to augmented_data folder
-                output_folder = 'augmented_data'
-                os.makedirs(output_folder, exist_ok=True)
-                
-                if bounding_boxes:
-                    # Save annotated image
-                    annotated_image = tree_detector._draw_annotations(temp_path, bounding_boxes)
-                    output_path = os.path.join(output_folder, f"annotated_{filename}")
-                    cv2.imwrite(output_path, annotated_image)
-                    
-                    # Save YOLO format annotations
-                    annotation_path = os.path.join(output_folder, f"{os.path.splitext(filename)[0]}.txt")
-                    tree_detector._save_yolo_annotations(annotation_path, bounding_boxes)
-                    
-                    result = {
-                        'success': True,
-                        'trees_detected': len(bounding_boxes),
-                        'annotated_image': f"annotated_{filename}",
-                        'annotation_file': f"{os.path.splitext(filename)[0]}.txt",
-                        'message': f'Detected {len(bounding_boxes)} palm trees'
-                    }
-                else:
-                    # Save original image if no trees detected
-                    output_path = os.path.join(output_folder, filename)
-                    cv2.imwrite(output_path, cv2.imread(temp_path))
-                    
-                    result = {
-                        'success': True,
-                        'trees_detected': 0,
-                        'annotated_image': filename,
-                        'annotation_file': None,
-                        'message': 'No palm trees detected'
-                    }
-                
-                # Clean up temp file
-                if os.path.exists(temp_path):
-                    os.remove(temp_path)
-                
-                return jsonify(result)
-                
-            except Exception as e:
-                # Clean up temp file on error
-                if os.path.exists(temp_path):
-                    os.remove(temp_path)
-                raise e
-                
+            files = request.files.getlist('images')
+            if not files or all(f.filename == '' for f in files):
+                return jsonify({'error': 'No images selected'}), 400
+
+            tree_detector = TreeDetector()
+            images_dir = Path('datasets/train/images')
+            labels_dir = Path('datasets/train/labels')
+            images_dir.mkdir(parents=True, exist_ok=True)
+            labels_dir.mkdir(parents=True, exist_ok=True)
+
+            processed_files = 0
+            total_detections = 0
+
+            for file in files:
+                filename = secure_filename(file.filename)
+                if filename.lower().endswith('.zip'):
+                    # Handle zip files
+                    temp_zip_path = f"temp_{filename}"
+                    file.save(temp_zip_path)
+                    with zipfile.ZipFile(temp_zip_path, 'r') as zip_ref:
+                        for member in zip_ref.namelist():
+                            if member.lower().endswith(('.png', '.jpg', '.jpeg')):
+                                with zip_ref.open(member) as image_file:
+                                    image_filename = secure_filename(Path(member).name)
+                                    image_path = images_dir / image_filename
+                                    with open(image_path, 'wb') as f:
+                                        f.write(image_file.read())
+
+                                    bounding_boxes = tree_detector.detect_trees(str(image_path))
+                                    if bounding_boxes:
+                                        label_path = labels_dir / f"{image_path.stem}.txt"
+                                        tree_detector._save_yolo_annotations(str(label_path), bounding_boxes)
+                                        total_detections += len(bounding_boxes)
+                                    processed_files += 1
+                    os.remove(temp_zip_path)
+                elif filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    # Handle single image files
+                    image_path = images_dir / filename
+                    file.save(image_path)
+
+                    bounding_boxes = tree_detector.detect_trees(str(image_path))
+                    if bounding_boxes:
+                        label_path = labels_dir / f"{image_path.stem}.txt"
+                        tree_detector._save_yolo_annotations(str(label_path), bounding_boxes)
+                        total_detections += len(bounding_boxes)
+                    processed_files += 1
+
+            return jsonify({
+                'success': True,
+                'message': f'Processed {processed_files} images, found {total_detections} trees.'
+            })
+
         except Exception as e:
             return jsonify({'error': str(e)}), 500
     
